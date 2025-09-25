@@ -1,0 +1,2 @@
+# luxyxfarid
+jualan
