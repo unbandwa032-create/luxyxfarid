@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>LUXY PAYMENT</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --accent-1: #00eaff;
+    --accent-2: #7a00ff;
+    --neon-glow: 0 0 18px rgba(0,234,255,0.12), 0 0 40px rgba(122,0,255,0.06);
+    --black: #00000;
+  }
+
+  /* reset */
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family: 'Orbitron', sans-serif;
+    background: var(--black);
+    color: #e6f7ff;
+    -webkit-font-smoothing:antialiased;
+    -moz-osx-font-smoothing:grayscale;
+    overflow-x:hidden;
+    position:relative;
+  }
+
+  /* canvas background full-screen */
+  #bgCanvas{
+    position:fixed;
+    inset:0;
+    width:100%;
+    height:100%;
+    z-index:-3;
+    background:#000;
+  }
+
+  /* subtle rotating gradient overlay */
+  .grad-overlay{
+    position:fixed;
+    inset:0;
+    pointer-events:none;
+    background: conic-gradient(from 180deg at 50% 50%, rgba(124,0,255,0.06), rgba(0,234,255,0.04), rgba(124,0,255,0.06));
+    mix-blend-mode:screen;
+    filter: blur(30px) saturate(120%);
+    animation: slowRotate 18s linear infinite;
+    z-index:-2;
+  }
+  @keyframes slowRotate{ from{transform:rotate(0)} to{transform:rotate(360deg)} }
+
+  /* glow vignette */
+  .vignette{
+    position:fixed; inset:0; pointer-events:none;
+    background: radial-gradient(ellipse at center, rgba(30,8,48,0.15), rgba(0,0,0,0.9) 45%, rgba(0,0,0,1));
+    z-index:-1;
+  }
+
+  /* Loading screen (full) */
+  #loading {
+    position:fixed; inset:0; background:linear-gradient(180deg,#020202,#000000);
+    display:flex; align-items:center; justify-content:center; flex-direction:column;
+    z-index:2000; gap:18px;
+  }
+  .loader-ring{
+    width:72px; height:72px; border-radius:50%;
+    border:4px solid rgba(255,255,255,0.06);
+    border-top:4px solid var(--accent-1);
+    border-right:4px solid var(--accent-2);
+    animation: spin 1s linear infinite;
+    box-shadow: var(--neon-glow);
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  #loading .text{
+    color:#cfefff; letter-spacing:0.08em; font-size:14px;
+    opacity:0.9;
+  }
+
+  /* page layout */
+  .container{
+    max-width:1100px;
+    margin: 40px auto;
+    padding: 24px;
+    display:flex;
+    flex-direction:column;
+    gap:18px;
+  }
+
+  header{
+    display:flex; align-items:center; gap:18px; justify-content:space-between;
+    backdrop-filter: blur(6px);
+    padding:18px 22px; border-radius:12px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    border:1px solid rgba(255,255,255,0.03);
+    box-shadow: 0 6px 30px rgba(0,0,0,0.6);
+    animation: slideDown .7s cubic-bezier(.2,.9,.3,1) .2s both;
+  }
+  @keyframes slideDown{ from{opacity:0; transform:translateY(-18px)} to{opacity:1; transform:none} }
+
+  .brand{
+    display:flex; gap:14px; align-items:center;
+  }
+  .logo{
+    width:58px; height:58px; border-radius:12px;
+    background: linear-gradient(135deg,var(--accent-1),var(--accent-2));
+    display:grid; place-items:center; font-weight:700; color:#001;
+    box-shadow: 0 6px 28px rgba(0,0,0,0.6), 0 0 18px rgba(0,234,255,0.08);
+  }
+  .brand h1{
+    font-size:18px; letter-spacing:.08em; color:transparent;
+    background:linear-gradient(90deg,var(--accent-1),var(--accent-2));
+    -webkit-background-clip:text; background-clip:text;
+    margin:0;
+  }
+  .header-actions{ display:flex; gap:10px; align-items:center; }
+
+  /* profile center card */
+  .hero{
+    display:flex; align-items:center; gap:22px;
+    padding:20px; border-radius:14px;
+    background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00));
+    border: 1px solid rgba(255,255,255,0.03);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+    animation: fadeUp .8s cubic-bezier(.2,.9,.3,1) .35s both;
+  }
+  @keyframes fadeUp{ from{opacity:0; transform:translateY(12px)} to{opacity:1; transform:none} }
+
+  .avatar{
+    width:140px; height:140px; border-radius:50%;
+    overflow:hidden; border:3px solid rgba(0,234,255,0.12);
+    display:grid; place-items:center;
+    box-shadow: 0 0 28px rgba(0,234,255,0.06);
+    transition: transform .6s cubic-bezier(.2,.9,.3,1);
+  }
+  .avatar img{ width:100%; height:100%; object-fit:cover; display:block; }
+
+  .hero-right{ flex:1; display:flex; flex-direction:column; gap:8px; }
+  .hero-title{ color: #e8faff; font-size:20px; letter-spacing:0.06em; }
+  .hero-sub{ color: rgba(230,247,255,0.65); font-size:13px; }
+
+  /* payment buttons (animated pills) */
+  .payments {
+    display:flex; gap:12px; align-items:center; flex-wrap:wrap;
+  }
+
+  .pill {
+    padding:12px 20px; border-radius:999px; border:0; cursor:pointer;
+    font-weight:700; color:#001; position:relative; overflow:hidden;
+    box-shadow: 0 6px 30px rgba(0,0,0,0.6);
+    transition: transform .35s cubic-bezier(.2,.9,.3,1), box-shadow .35s;
+    min-width:170px; text-align:center;
+  }
+
+  /* animated gradient background inside pill */
+  .pill::before{
+    content:""; position:absolute; inset:0; z-index:-1;
+    background: linear-gradient(90deg, var(--accent-1), var(--accent-2), rgba(255,255,255,0.06));
+    background-size:300% 100%;
+    transform:translateZ(0);
+    filter: blur(8px) saturate(140%);
+    opacity:1;
+    transition:opacity .25s;
+    animation: moveGrad 3.5s linear infinite;
+  }
+  @keyframes moveGrad{ 0%{background-position:0%} 50%{background-position:100%} 100%{background-position:0%} }
+
+  .pill.dark{
+    color:#cfefff;
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    border:1px solid rgba(255,255,255,0.03);
+  }
+  .pill:hover{ transform:translateY(-6px) scale(1.02); box-shadow: 0 10px 40px rgba(0,234,255,0.08); }
+  .pill .label{ position:relative; z-index:2; }
+
+  /* QRIS special style */
+  .pill.qris{ min-width:220px; font-weight:800; color:#001; }
+  .pill.dana{ min-width:170px; font-weight:700; color:#001; }
+
+  /* main grid */
+  .grid{
+    margin-top:18px;
+    display:grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap:16px;
+  }
+
+  .card{
+    border-radius:14px; padding:18px; position:relative;
+    background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00));
+    border:1px solid rgba(255,255,255,0.03);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+    transform-origin:center;
+    transition: transform .45s cubic-bezier(.2,.9,.3,1), box-shadow .45s;
+  }
+
+  /* tilt effect courtesy simple transform on hover */
+  .card:hover{ transform: translateY(-10px) rotateX(3deg) rotateY(-2deg); box-shadow: 0 18px 60px rgba(0,0,0,0.7); }
+
+  .card .title{ color:var(--accent-1); font-weight:800; font-size:16px; margin-bottom:6px; letter-spacing:.04em; }
+  .card .price{ color:#fffff; font-weight:700; margin-bottom:10px; }
+  .card .desc{ color:rgba(230,247,255,0.7); font-size:13px; display:none; }
+
+  .card .reveal{ display:block; margin-top:10px; color:rgba(230,247,255,0.8); font-size:13px; }
+
+  /* popup modal */
+  .modal {
+    position:fixed; inset:0; display:none; place-items:center;
+    background: rgba(0,0,0,0.75); z-index:1500;
+  }
+  .modal .box{
+    background: linear-gradient(180deg, #021, #000);
+    padding:18px; border-radius:10px; border:1px solid rgba(255,255,255,0.04);
+    box-shadow: 0 18px 60px rgba(0,0,0,0.8);
+    text-align:center;
+  }
+  .modal img{ max-width:320px; border-radius:8px; border:3px solid rgba(0,234,255,0.1); box-shadow: var(--neon-glow); display:block; margin:6px auto; }
+
+  /* small screens */
+  @media (max-width:640px){
+    .hero{ flex-direction:column; align-items:center; text-align:center; gap:12px }
+    header{ flex-direction:column; gap:10px; align-items:center }
+    .brand h1{ font-size:16px }
+    .avatar{ width:110px; height:110px }
+  }
+</style>
+</head>
+<body>
+
+<!-- Canvas background -->
+<canvas id="bgCanvas"></canvas>
+<div class="grad-overlay"></div>
+<div class="vignette"></div>
+
+<!-- Loading screen -->
+<div id="loading">
+  <div class="loader-ring" aria-hidden="true"></div>
+  <div class="text">Tunggu Sebentar...</div>
+</div>
+
+<div class="container" id="page" style="visibility:hidden;">
+
+  <header>
+    <div class="brand">
+      <div class="logo">A</div>
+      <div>
+        <h1>LUXY PAYMENT</h1>
+        <div style="font-size:11px;color:rgba(230,247,255,0.6);margin-top:4px">Pembayaran & Layanan Script</div>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <!-- kept small quick info -->
+    </div>
+  </header>
+
+  <!-- hero with avatar and payment pills -->
+  <div class="hero">
+    <div class="avatar" title="Cursed Zephyrine">
+      <img src="https://files.catbox.moe/ffy2nk.jpg" alt="Cursed Zephyrine">
+    </div>
+
+    <div class="hero-right">
+      <div class="hero-title">LUXY x FARID Payment</div>
+      <div class="hero-sub">Pilih Metode Pembayaran Di Bawah. Klik QRIS Untuk Melihat Kode.</div>
+
+      <div class="payments" style="margin-top:10px; display:flex; justify-content:center; align-items:center;">
+    <button class="pill dark dana" onclick="openQRIS()" aria-label="QRIS: CLICK HERE">
+        <span class="label">QRIS: CLICK HERE</span>
+    </button>
+</div>
+
+      </div>
+    </div>
+  </div
+
+  <!-- product grid -->
+  <div class="grid" style="margin-top:8px">
+    <div class="card" onclick="toggleCard(this)">
+      <div class="title">Script Bug Lucciy</div>
+      <div class="price">Rp 25.000</div>
+      <div class="desc">Bot Telegram Bug WhatsApp Lucciy Dengan Perlindungan Anti Crack Dan Memilki Banyak Tipe Bug.</div>
+    </div>
+
+    <div class="card" onclick="toggleCard(this)">
+      <div class="title">Script Data base</div>
+      <div class="price">Rp 10.000</div>
+      <div class="desc">data base Untuk Keamanan Script Cocok Untuk Testing & Protection.</div>
+    </div>
+
+    <div class="card" onclick="toggleCard(this)">
+      <div class="title">Partner luxy Basic</div>
+      <div class="price">Rp 15.000</div>
+      <div class="desc">DAPATKAN 12 ITEM
+      1. SCRIPT BUG VIA WA/TELE
+      2. SCRIPT BASE BUG VIA WA/TELE
+      3. SCRIPT UBOT VIA TELE
+      4. SCRIPT JASHARE VIA TELE
+      5. SCRIPT MD VIA TELE
+      6. GET RES PANEL
+      7. GET MURID SUNTIK SOSMED
+      8. GET MURID BAND/UNBAND WA/TELE
+      9. GET MURID NOKOS
+      10. GET ADMIN CHANEL
+      11. GET ADMIN ROOM PUBLICK
+      12. GET DI PROMOSI/ENDROSE
+      .</div>
+    </div>
+
+    <div class="card" onclick="toggleCard(this)">
+      <div class="title">Patner LUXY Vip</div>
+      <div class="price">Rp 35.000</div>
+      <div class="desc">DAPATKAN 18 ITEM
+      1. SCRIPT BUG VIA WA/TELE
+      2. SCRIPT BASE BUG WA/TELE
+      3. SCRIPT MD BERBAYAR/VIP
+      4. SCRIPT DATA BASE VIA WA/TELE
+      5. SCRIPT JASHARE BOT VIA TELE
+      6. SCRIPT UBOT PANEL VIA TELE
+      7. SCRIPT OBF/ENC SCRIPT
+      8. SCRIPT CREATE PANEL
+      9. SCRIPT BYPASS/DEL TOKEN
+      10. GET MURID BAND/UNBAN WA/TELE
+      11. GET MURID TUTOR BIKIN SCRIPT BUG
+      12. GET MURID SUNTIK FOLLOWERS
+      13. GET MURID NOKOS
+      14. GET ADP
+      15. GET ADMIN CHANEL
+      16. GET ADMIN ROOM PUBLICK
+      17. GET MURID WEBSITE
+      18. GET DIPROMOSI/ENDROSE .</div>
+    </div>
+    <div class="card" onclick="toggleCard(this)">
+      <div class="title">Panel Unli</div>
+      <div class="price">Rp 1.000</div>
+      <div class="desc">Bisa Pasang Bot Tele/Wa Harga Murah Dan Aman Masa Aktif 1 Bulan
+  </div>
+
+</div>
+
+<!-- QRIS modal (keep your link) -->
+<div class="modal" id="modalQRIS" aria-hidden="true">
+  <div class="box">
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:10px">
+      <div style="font-weight:800;color:var(--accent-1)">QRIS</div>
+      <button style="background:transparent;border:0;color:#fff;font-size:18px;cursor:pointer" onclick="closeQRIS()">✕</button>
+    </div>
+    <img src="https://files.catbox.moe/8svhtr.jpg" alt="QRIS">
+    <div style="font-size:12px;color:rgba(230,247,255,0.6); margin-top:8px">Scan untuk membayar — Sertakan Bukti Transaksi Chat @luxyluxyy (All Trx No Reff)</div>
+  </div>
+</div>
+
+<script>
+/* =========================
+   Page interactions
+   ========================= */
+function toggleCard(el){
+  const desc = el.querySelector('.desc');
+  const rev = el.querySelector('.reveal');
+  if(desc.style.display === 'block'){
+    desc.style.display = 'none';
+    rev.style.display = 'none';
+  }else{
+    desc.style.display = 'block';
+    rev.style.display = 'block';
+  }
+}
+
+function openQRIS(){
+  document.getElementById('modalQRIS').style.display = 'grid';
+}
+function closeQRIS(){
+  document.getElementById('modalQRIS').style.display = 'none';
+}
+
+function animateDANA(){
+  // subtle animation feedback (no navigation)
+  const btn = document.querySelector('.pill.dana');
+  btn.animate([
+    { transform: 'scale(1) translateY(0)', boxShadow: '0 6px 30px rgba(0,0,0,0.6)' },
+    { transform: 'scale(1.06) translateY(-6px)', boxShadow: '0 18px 45px rgba(0,234,255,0.08)' },
+    { transform: 'scale(1) translateY(0)', boxShadow: '0 6px 30px rgba(0,0,0,0.6)' }
+  ], { duration: 520, easing: 'cubic-bezier(.2,.9,.3,1)' });
+
+  // micro tooltip
+  showToast('HARAP SERTAKAN BUKTI TRANSAKSI SETELAH TRANSFER');
+}
+
+/* toast */
+function showToast(text){
+  if(document.getElementById('zephy-toast')) return;
+  const t = document.createElement('div');
+  t.id = 'zephy-toast';
+  t.style.position='fixed';
+  t.style.bottom='28px';
+  t.style.left='50%';
+  t.style.transform='translateX(-50%)';
+  t.style.background='linear-gradient(90deg,var(--accent-2),var(--accent-1))';
+  t.style.color='#001';
+  t.style.padding='8px 16px';
+  t.style.borderRadius='999px';
+  t.style.boxShadow='0 10px 40px rgba(0,0,0,0.6)';
+  t.style.fontWeight='700';
+  t.style.zIndex=1600;
+  t.style.letterSpacing='0.04em';
+  t.textContent = text;
+  document.body.appendChild(t);
+  setTimeout(()=>{ t.style.transition='all .4s ease'; t.style.opacity='0'; t.style.transform='translateX(-50%) translateY(8px)'; }, 1600);
+  setTimeout(()=> t.remove(), 2200);
+}
+
+/* hide modal on ESC or click outside */
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeQRIS(); });
+document.getElementById('modalQRIS').addEventListener('click', e=>{ if(e.target.id==='modalQRIS') closeQRIS(); });
+
+/* =========================
+   Loading screen
+   ========================= */
+window.addEventListener('load', ()=>{
+  // show content after small delay so animations look smooth
+  setTimeout(()=>{
+    document.getElementById('loading').style.opacity = '0';
+    document.getElementById('loading').style.transition = 'opacity .45s ease';
+    setTimeout(()=>{ document.getElementById('loading').style.display = 'none'; }, 480);
+    document.getElementById('page').style.visibility = 'visible';
+  }, 900);
+});
+
+/* =========================
+   Canvas animated background
+   - starfield + moving neon particles
+   ========================= */
+(() => {
+  const canvas = document.getElementById('bgCanvas');
+  const ctx = canvas.getContext('2d');
+  let w = canvas.width = innerWidth;
+  let h = canvas.height = innerHeight;
+  const DPR = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width = innerWidth * DPR;
+  canvas.height = innerHeight * DPR;
+  canvas.style.width = innerWidth + 'px';
+  canvas.style.height = innerHeight + 'px';
+  ctx.scale(DPR, DPR);
+
+  window.addEventListener('resize', ()=>{
+    w = canvas.width = innerWidth * DPR;
+    h = canvas.height = innerHeight * DPR;
+    canvas.style.width = innerWidth + 'px';
+    canvas.style.height = innerHeight + 'px';
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+  });
+
+  // stars
+  const stars = [];
+  const STAR_COUNT = Math.max(80, Math.floor((innerWidth*innerHeight)/9000));
+  for(let i=0;i<STAR_COUNT;i++){
+    stars.push({
+      x: Math.random()*innerWidth,
+      y: Math.random()*innerHeight,
+      r: Math.random()*1.2 + 0.2,
+      a: Math.random()*0.9 + 0.1,
+      vx: (Math.random()-0.5)*0.15,
+      vy: (Math.random()-0.5)*0.15
+    });
+  }
+
+  // neon particle blobs
+  const particles = [];
+  const P_COUNT = Math.max(25, Math.floor((innerWidth)/60));
+  for(let i=0;i<P_COUNT;i++){
+    particles.push({
+      x: Math.random()*innerWidth,
+      y: Math.random()*innerHeight,
+      r: Math.random()*28 + 12,
+      hue: Math.random()*360,
+      vx: (Math.random()-0.5)*0.25,
+      vy: (Math.random()-0.5)*0.25,
+      alpha: Math.random()*0.22 + 0.06
+    });
+  }
+
+  // mouse influence (subtle)
+  const mouse = {x: innerWidth/2, y: innerHeight/2};
+
+  addEventListener('mousemove', e=>{
+    mouse.x = e.clientX; mouse.y = e.clientY;
+  });
+
+  function drawStar(s){
+    ctx.beginPath();
+    ctx.globalAlpha = s.a;
+    ctx.fillStyle = '#ffffff';
+    ctx.moveTo(s.x, s.y);
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+    ctx.fill();
+    ctx.closePath();
+    ctx.globalAlpha = 1;
+  }
+
+  function drawParticle(p){
+    const grd = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r);
+    const hue1 = (p.hue % 360);
+    const hue2 = (p.hue+60) % 360;
+    grd.addColorStop(0, `hsla(${hue1},100%,60%,${p.alpha})`);
+    grd.addColorStop(0.35, `hsla(${hue2},90%,45%,${p.alpha*0.6})`);
+    grd.addColorStop(1, `rgba(0,0,0,0)`);
+    ctx.fillStyle = grd;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+    ctx.fill();
+    ctx.closePath();
+  }
+
+  function step(){
+    ctx.clearRect(0,0,innerWidth, innerHeight);
+
+    // draw particles (neon blobs)
+    for(let i=0;i<particles.length;i++){
+      const p = particles[i];
+      // gentle movement + attraction to mouse
+      const dx = (mouse.x - p.x) * 0.0009;
+      const dy = (mouse.y - p.y) * 0.0009;
+      p.vx += dx; p.vy += dy;
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vx *= 0.995; p.vy *= 0.995;
+      p.hue += 0.08;
+      // wrap
+      if(p.x < -p.r) p.x = innerWidth + p.r;
+      if(p.x > innerWidth + p.r) p.x = -p.r;
+      if(p.y < -p.r) p.y = innerHeight + p.r;
+      if(p.y > innerHeight + p.r) p.y = -p.r;
+      drawParticle(p);
+    }
+
+    // draw stars in front (subtle)
+    for(let i=0;i<stars.length;i++){
+      const s = stars[i];
+      s.x += s.vx; s.y += s.vy;
+      // twinkle
+      s.a += (Math.random()-0.5)*0.02;
+      s.a = Math.max(0.05, Math.min(1, s.a));
+      if(s.x < -5) s.x = innerWidth+5;
+      if(s.x > innerWidth+5) s.x = -5;
+      if(s.y < -5) s.y = innerHeight+5;
+      if(s.y > innerHeight+5) s.y = -5;
+      drawStar(s);
+    }
+
+    requestAnimationFrame(step);
+  }
+
+  requestAnimationFrame(step);
+})();
+
+</script>
+</body>
+</html>
